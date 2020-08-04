@@ -15,6 +15,30 @@
  */
 package com.example.android.pets;
 
+import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
+import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v4.app.NavUtils;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
+import android.support.v4.widget.SimpleCursorAdapter;
+
+
+import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
@@ -23,23 +47,31 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
-import android.support.v4.app.LoaderManager;
-import android.support.v4.content.CursorLoader;
-import android.support.v4.content.Loader;
+
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.Spinner;
+import android.util.Log;
+import android.widget.Toast;
+
 
 import com.example.android.pets.data.PetContract.PetEntry;
+import com.example.android.pets.data.PetProvider;
 
 /**
  * Displays list of pets that were entered and stored in the app.
  */
+
 public class CatalogActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
-    private final static int PET_LOADER = 0;
+    private final static int PET_LOADER = 1;
     PetCursorAdapter mCursorAdapter;
+
+    private int mGender = PetEntry.GENDER_UNKNOWN;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,8 +87,9 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
                 startActivity(intent);
             }
         });
+
         // Find the ListView which will be populated with the pet data
-        ListView petListView = (ListView) findViewById(R.id.list);
+        final ListView petListView = (ListView) findViewById(R.id.list);
 
         // Find and set empty view on the ListView, so that it only shows when the list has 0 items.
         View emptyView = findViewById(R.id.empty_view);
@@ -64,11 +97,41 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
 
         // set up an Adapter to create a list item for each row of pet data in the cursor
         // there is no pet data yet(Until the loader finishes ) so pass in null for the cursor
-        mCursorAdapter=new PetCursorAdapter(this,null);
+        mCursorAdapter = new PetCursorAdapter(this, null);
         petListView.setAdapter(mCursorAdapter);
+        // Setup the iem clik listener
+        petListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+                //Creat new intent to go to {@Link EditorActivty}
+                Intent intent = new Intent(CatalogActivity.this, EditorActivity.class);
+                //From the content URI that represents the specific pet that was clicked on,
+                //Fer exaple , the URI would bee "content//cim.example.android.pets/pets/2
+                //if the pet with ID 2 was clicked on.
+               Uri currentpeturi = ContentUris.withAppendedId(PetEntry.CONTENT_URI, id);
+                // Set the URI on the data field of the intent
+                intent.setData(currentpeturi);
+                // Lanuch the {@link EditorActivty}to display the data for the current pet.
+                startActivity(intent);
 
+
+                // TODO Auto-generated method stub
+
+               // Getting listview click value into String variable.
+                String TempListViewClickedValue = petListView.getItemAtPosition(position).toString();
+               // Toast.makeText(this,"2",Toast.LENGTH_LONG).show();
+
+                // Sending value to another activity using intent.
+                intent.putExtra("ListViewClickedValue", TempListViewClickedValue);
+
+                startActivity(intent);
+
+            }
+        });
         // Kick off the loader
-        getLoaderManager().initLoader(PET_LOADER,null, (android.app.LoaderManager.LoaderCallbacks<Object>) this);
+        //getLoaderManager().initLoader(PET_LOADER,null, CatalogActivity);
+        getSupportLoaderManager().initLoader(PET_LOADER, null, this);
+
     }
 
     /**
@@ -90,6 +153,14 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
         Uri newUri = getContentResolver().insert(PetEntry.CONTENT_URI, values);
     }
 
+    /**
+     * Helper method to delete all pets in the database.
+     */
+    private void deleteAllPets() {
+        int rowsDeleted = getContentResolver().delete(PetEntry.CONTENT_URI, null, null);
+        Log.v("CatalogActivity", rowsDeleted + " rows deleted from pet database");
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu options from the res/menu/menu_catalog.xml file.
@@ -109,6 +180,7 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
             // Respond to a click on the "Delete all entries" menu option
             case R.id.action_delete_all_entries:
                 // Do nothing for now
+                deleteAllPets();
                 return true;
         }
         return super.onOptionsItemSelected(item);
